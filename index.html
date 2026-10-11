@@ -1,0 +1,176 @@
+```html
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Stock Portfolio Tracker</title>
+<style>
+*{box-sizing:border-box}
+body{margin:0;font-family:Arial,sans-serif;background:#0b1120;color:#f1f5f9}
+header{padding:24px 7%;background:#111b2e;border-bottom:1px solid #263449}
+header h1{margin:0;color:#38bdf8}
+header p{color:#94a3b8;margin-bottom:0}
+main{max-width:1100px;margin:30px auto;padding:0 18px}
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px}
+.card,.panel{background:#142035;border:1px solid #263449;border-radius:14px;padding:20px}
+.card p{color:#94a3b8;margin:0 0 12px}
+.card h2{margin:0;font-size:25px}
+.panel{margin-top:22px}
+h3{margin-top:0}
+form{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px}
+input,button{width:100%;padding:12px;border-radius:8px;border:1px solid #334155;font-size:14px}
+input{background:#0b1120;color:white}
+button{background:#0284c7;color:white;border:none;font-weight:bold;cursor:pointer}
+button:hover{background:#0369a1}
+table{width:100%;border-collapse:collapse;margin-top:15px;min-width:650px}
+th,td{text-align:left;padding:13px;border-bottom:1px solid #263449}
+th{color:#7dd3fc}
+.table-wrap{overflow-x:auto}
+.delete{background:#dc2626;padding:8px}
+.positive{color:#4ade80}
+.negative{color:#fb7185}
+.note{color:#94a3b8;font-size:13px;line-height:1.5}
+.empty{text-align:center;color:#94a3b8;padding:22px}
+footer{text-align:center;color:#64748b;padding:25px}
+</style>
+</head>
+<body>
+<header>
+  <h1>📈 Stock Portfolio Tracker</h1>
+  <p>Track your investments. Understand your returns.</p>
+</header>
+
+<main>
+  <section class="cards">
+    <div class="card"><p>Total Investment</p><h2 id="investment">₹0.00</h2></div>
+    <div class="card"><p>Current Portfolio Value</p><h2 id="value">₹0.00</h2></div>
+    <div class="card"><p>Total Profit / Loss</p><h2 id="profit">₹0.00</h2></div>
+    <div class="card"><p>Return</p><h2 id="returns">0.00%</h2></div>
+  </section>
+
+  <section class="panel">
+    <h3>➕ Add a Stock</h3>
+    <form id="stockForm">
+      <input id="name" placeholder="Stock name (e.g. TCS)" required>
+      <input id="quantity" type="number" min="1" step="1" placeholder="Quantity" required>
+      <input id="buyPrice" type="number" min="0.01" step="0.01" placeholder="Purchase price (₹)" required>
+      <input id="currentPrice" type="number" min="0" step="0.01" placeholder="Current price (₹)" required>
+      <button type="submit">Add Stock</button>
+    </form>
+    <p class="note">Enter stock prices manually. This demo does not fetch live market prices.</p>
+  </section>
+
+  <section class="panel">
+    <h3>📊 My Investments</h3>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>Stock</th><th>Quantity</th><th>Buy Price</th><th>Current Price</th><th>Investment</th><th>Profit / Loss</th><th>Action</th></tr>
+        </thead>
+        <tbody id="stockList"></tbody>
+      </table>
+      <div id="empty" class="empty">No stocks added yet. Add your first investment above!</div>
+    </div>
+  </section>
+</main>
+
+<footer>Stock Portfolio Tracker · Personal investment dashboard</footer>
+
+<script>
+const form = document.getElementById("stockForm");
+const list = document.getElementById("stockList");
+const empty = document.getElementById("empty");
+
+let stocks = [];
+try {
+  stocks = JSON.parse(localStorage.getItem("stockPortfolio") || "[]");
+  if (!Array.isArray(stocks)) stocks = [];
+} catch {
+  stocks = [];
+}
+
+const money = n => "₹" + n.toLocaleString("en-IN", {
+  minimumFractionDigits: 2,
+  maximumFractionDigits: 2
+});
+
+function save() {
+  localStorage.setItem("stockPortfolio", JSON.stringify(stocks));
+}
+
+function render() {
+  list.innerHTML = "";
+  let investment = 0;
+  let value = 0;
+
+  stocks.forEach((s, i) => {
+    const invested = s.quantity * s.buyPrice;
+    const currentValue = s.quantity * s.currentPrice;
+    const pl = currentValue - invested;
+    investment += invested;
+    value += currentValue;
+
+    const row = document.createElement("tr");
+    [s.name, s.quantity, money(s.buyPrice), money(s.currentPrice),
+      money(invested), money(pl)].forEach((text, j) => {
+        const cell = document.createElement("td");
+        cell.textContent = text;
+        if (j === 5) cell.className = pl >= 0 ? "positive" : "negative";
+        row.appendChild(cell);
+      });
+
+    const actionCell = document.createElement("td");
+    const del = document.createElement("button");
+    del.textContent = "Remove";
+    del.className = "delete";
+    del.addEventListener("click", () => {
+      stocks.splice(i, 1);
+      save();
+      render();
+    });
+    actionCell.appendChild(del);
+    row.appendChild(actionCell);
+    list.appendChild(row);
+  });
+
+  const profit = value - investment;
+  document.getElementById("investment").textContent = money(investment);
+  document.getElementById("value").textContent = money(value);
+
+  const profitElement = document.getElementById("profit");
+  profitElement.textContent = money(profit);
+  profitElement.className = profit >= 0 ? "positive" : "negative";
+
+  document.getElementById("returns").textContent =
+    (investment ? profit / investment * 100 : 0).toFixed(2) + "%";
+
+  empty.style.display = stocks.length ? "none" : "block";
+}
+
+form.addEventListener("submit", event => {
+  event.preventDefault();
+
+  const name = document.getElementById("name").value.trim();
+  const quantity = Number(document.getElementById("quantity").value);
+  const buyPrice = Number(document.getElementById("buyPrice").value);
+  const currentPrice = Number(document.getElementById("currentPrice").value);
+
+  if (!name || !Number.isInteger(quantity) || quantity <= 0 ||
+      !Number.isFinite(buyPrice) || buyPrice <= 0 ||
+      !Number.isFinite(currentPrice) || currentPrice < 0) {
+    alert("Please enter valid stock details.");
+    return;
+  }
+
+  stocks.push({name, quantity, buyPrice, currentPrice});
+  save();
+  render();
+  form.reset();
+});
+
+render();
+</script>
+</body>
+</html>
+```
